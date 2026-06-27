@@ -1,0 +1,204 @@
+{
+  "agent_id": "",
+  "channel": "voice",
+  "last_modification_timestamp": 1782194182829,
+  "agent_name": "Conversation Flow Agent",
+  "response_engine": {
+    "type": "conversation-flow",
+    "version": 0,
+    "conversation_flow_id": "conversation_flow_114a0976a3bc"
+  },
+  "language": "en-US",
+  "data_storage_setting": "everything",
+  "opt_in_signed_url": false,
+  "version": 0,
+  "assigned_tags": [],
+  "is_published": false,
+  "post_call_analysis_model": "gpt-4.1",
+  "pii_config": {
+    "mode": "post_call",
+    "categories": []
+  },
+  "handbook_config": {
+    "default_personality": true,
+    "ai_disclosure": true
+  },
+  "voice_id": "retell-Grace",
+  "fallback_voice_ids": [],
+  "voice_temperature": 1,
+  "voice_speed": 1,
+  "volume": 1,
+  "enable_expressive_mode": true,
+  "expressive_emotion_tags": [
+    "empathetic",
+    "excited",
+    "sigh",
+    "clear throat",
+    "emphasis"
+  ],
+  "max_call_duration_ms": 3600000,
+  "interruption_sensitivity": 0.9,
+  "allow_user_dtmf": true,
+  "user_dtmf_options": {},
+  "conversationFlow": {
+    "conversation_flow_id": "conversation_flow_114a0976a3bc",
+    "version": 0,
+    "last_modification_timestamp": 1782412907110,
+    "nodes": [
+      {
+        "instruction": {
+          "type": "static_text",
+          "text": "Hello, this is Samantha from TenFreight Customer Support.\n\nI'm following up regarding your recent inquiry.\n\nI can help you with:\n- Freight Quotes\n- Bookings\n- Shipment Tracking\n- General Support\n\nHow may I assist you today?"
+        },
+        "name": "Welcome Node",
+        "edges": [
+          {
+            "id": "edge-1",
+            "transition_condition": {
+              "type": "prompt",
+              "prompt": "User needs to return the package"
+            }
+          },
+          {
+            "id": "edge-1781894815879-wq8lzqlcq",
+            "transition_condition": {
+              "type": "prompt",
+              "prompt": "User wants to check existing Consignment Status by providing Consignment Number"
+            }
+          },
+          {
+            "id": "edge-2",
+            "transition_condition": {
+              "type": "prompt",
+              "prompt": "User needs to check the order status"
+            }
+          },
+          {
+            "destination_node_id": "node-1782195716142",
+            "id": "edge-1782195561031-gfq9b2f1p",
+            "transition_condition": {
+              "type": "prompt",
+              "prompt": "User wants a freight quote"
+            }
+          }
+        ],
+        "start_speaker": "agent",
+        "id": "start-node-1781894343567",
+        "type": "conversation",
+        "display_position": {
+          "x": 270,
+          "y": 102
+        }
+      },
+      {
+        "name": "End Call",
+        "id": "end-call-node-1781894343567",
+        "type": "end",
+        "display_position": {
+          "x": 966,
+          "y": 894
+        },
+        "instruction": {
+          "type": "prompt",
+          "text": "Politely end the call"
+        }
+      },
+      {
+        "name": "Quote Request",
+        "edges": [
+          {
+            "destination_node_id": "node-1782196144894",
+            "id": "edge-1782195716142-rb6ofwswa",
+            "transition_condition": {
+              "type": "prompt",
+              "prompt": "Customer provided all quote details"
+            }
+          }
+        ],
+        "id": "node-1782195716142",
+        "type": "conversation",
+        "display_position": {
+          "x": 606,
+          "y": 150
+        },
+        "instruction": {
+          "type": "prompt",
+          "text": "You are Samantha from TenFreight Customer Support.\n\nThe caller would like a freight quote.\n\nYour task is to collect complete shipment information in a conversational manner.\n\nIMPORTANT RULES:\n\n* Ask only one question at a time.\n* Do not ask all questions together.\n* Wait for the caller's response before proceeding.\n* Be friendly, professional, and concise.\n* If the caller provides multiple pieces of information at once, acknowledge them and continue with the next missing question.\n* Ensure all required information is collected before proceeding to the shipment summary.\n\nCOLLECT THE FOLLOWING INFORMATION IN THIS EXACT ORDER:\n\nPICKUP DETAILS\n\n1. Pickup Suburb\n\nAsk:\n\"What suburb or postcode will we be collecting from?\"\n\n2. Pickup Location Type\n\nAsk:\n\"Is the pickup location commercial or residential?\"\n\n3. Pickup Loading Method\n\nAsk:\n\"How will the freight be loaded? Forklift, tail lift, or hand load?\"\n\nDELIVERY DETAILS\n\n4. Delivery Suburb\n\nAsk:\n\"What suburb or postcode will we be delivering to?\"\n\n5. Delivery Location Type\n\nAsk:\n\"Is the delivery location commercial or residential?\"\n\n6. Delivery Unloading Method\n\nAsk:\n\"How will the freight be unloaded? Forklift, tail lift, or hand unload?\"\n\nITEM DETAILS\n\n7. Collect Item Information\n\nAsk for:\n\n* Length (cm)\n* Width (cm)\n* Height (cm)\n* Weight (kg)\n* Quantity\n\nExample:\n\n\"Please provide the dimensions of the item. What is the length, width, height, weight, and quantity?\"\n\nDANGEROUS GOODS\n\n8. Dangerous Goods\n\nAsk:\n\n\"Does this shipment contain any dangerous goods?\"\n\nADDITIONAL ITEMS\n\nAfter collecting the item information and dangerous goods information, ask:\n\n\"Would you like to add another item to this shipment?\"\n\nIf YES:\n\nCollect another item's dimensions, weight, quantity, and dangerous goods information.\n\nRepeat until the caller says no.\n\nIf NO:\n\nProceed to Shipment Summary.\n\nSHIPMENT SUMMARY\n\nSummarize all collected information.\n\nExample:\n\n\"Let me confirm the shipment details.\"\n\nPickup:\n\n* Sydney NSW\n* Commercial\n* Forklift\n\nDelivery:\n\n* Melbourne VIC\n* Residential\n* Tail Lift\n\nItems:\n\nItem 1:\n\n* 120cm x 100cm x 90cm\n* 250kg\n* Qty 2\n* Not Dangerous Goods\n\nItem 2:\n\n* 50cm x 50cm x 40cm\n* 25kg\n* Qty 1\n* Dangerous Goods\n\nAsk:\n\n\"Are all these details correct?\"\n\nIf the caller confirms, proceed to the closing message.\n\nIf corrections are required, update the shipment information and repeat the summary.\n\nCLOSING MESSAGE\n\nSince a live quote is not currently available, do not provide pricing.\n\nSay:\n\n\"Thank you. Your shipment request has been successfully recorded.\n\nOur freight team will review the details and provide a quote via email. If additional information is required, one of our team members may contact you.\n\nIf you choose to proceed with the quote, we can assist with booking arrangements afterward.\n\nThank you for contacting TenFreight. Have a wonderful day.\"\n\nAfter delivering the closing message, end the conversation.\n"
+        }
+      },
+      {
+        "name": "Confirm Shipment Details",
+        "edges": [
+          {
+            "id": "edge-1782196144894-zt4w0rt0t",
+            "transition_condition": {
+              "type": "prompt",
+              "prompt": "Caller confirmed shipment details"
+            }
+          },
+          {
+            "destination_node_id": "node-1782198930040",
+            "id": "edge-1782198953149-tqt4o92pq",
+            "transition_condition": {
+              "type": "prompt",
+              "prompt": "After delivering the closing message, politely pause for a brief moment and then end the call."
+            }
+          }
+        ],
+        "id": "node-1782196144894",
+        "type": "conversation",
+        "display_position": {
+          "x": 1014,
+          "y": 174
+        },
+        "instruction": {
+          "type": "prompt",
+          "text": "Review all shipment information collected from the caller.\n\nSummarize the shipment details clearly and professionally.\n\nInclude:\n\nPickup Details:\n\n* Pickup suburb\n* Commercial or Residential\n* Loading method\n\nDelivery Details:\n\n* Delivery suburb\n* Commercial or Residential\n* Unloading method\n\nItems:\n\n* Length\n* Width\n* Height\n* Weight\n* Quantity\n* Dangerous Goods status\n\nFor multiple items, list each item separately.\n\nAfter summarizing, ask:\n\n\"Could you please confirm that all these shipment details are correct?\"\n\nIf the caller provides corrections, update the information and repeat the summary.\n\nIf the caller confirms the details are correct, respond with:\n\n\"Thank you for confirming.\n\nYour shipment request has now been successfully recorded and will be reviewed by our freight team.\n\nAt this time, we are unable to provide an instant quote over the phone. A member of our team will review the shipment requirements and provide a quotation via email as soon as possible.\n\nIf any additional information is required, we may contact you directly. Once the quote has been accepted, we can assist with arranging the booking.\n\nThank you for choosing TenFreight. We appreciate the opportunity to assist you today.\n\nHave a wonderful day and please stay safe.\"\n\nAfter delivering the closing message, end the conversation.\n"
+        }
+      },
+      {
+        "name": "Conversation",
+        "edges": [
+          {
+            "destination_node_id": "end-call-node-1781894343567",
+            "id": "edge-1782198930040-nwj0ci5is",
+            "transition_condition": {
+              "type": "prompt",
+              "prompt": "Describe the transition condition"
+            }
+          }
+        ],
+        "id": "node-1782198930040",
+        "type": "conversation",
+        "display_position": {
+          "x": 606,
+          "y": 630
+        },
+        "instruction": {
+          "type": "prompt",
+          "text": "Perfect, thank you for confirming those details.\n\nYour shipment request has been successfully submitted and is now being reviewed by our operations team.\n\nWe'll provide a quotation via email as soon as possible. Should we need any additional information, we'll reach out to you directly.\n\nOn behalf of everyone at TenFreight, thank you for your continued support and for trusting us with your freight requirements.\n\nWe appreciate the opportunity to assist you and look forward to helping with your shipment.\n\nHave a fantastic day, and thank you for choosing TenFreight.\n\nGoodbye for now.\n"
+        }
+      }
+    ],
+    "start_node_id": "start-node-1781894343567",
+    "start_speaker": "agent",
+    "model_choice": {
+      "type": "cascading",
+      "model": "gpt-4.1-nano",
+      "high_priority": true
+    },
+    "tool_call_strict_mode": true,
+    "knowledge_base_ids": [],
+    "kb_config": {
+      "top_k": 3,
+      "filter_score": 0.6
+    },
+    "begin_tag_display_position": {
+      "x": 122,
+      "y": 333
+    },
+    "is_published": false,
+    "flex_mode": false,
+    "is_transfer_cf": false
+  }
+}
