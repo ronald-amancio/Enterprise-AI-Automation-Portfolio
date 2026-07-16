@@ -1,0 +1,589 @@
+{
+  "name": "AI Customer Enquiry Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "customer-enquiry",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "9b7a3007-edc8-484f-a223-11b813f23722",
+      "name": "Website Form Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        96
+      ],
+      "webhookId": "28516eaf-3089-47f2-b7f5-e7dc0fc4af34"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "source",
+              "value": "web",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "customer_name",
+              "value": "={{ $json.body.customer_name }}",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "customer_email",
+              "value": "={{ $json.body.customer_email }}",
+              "type": "string"
+            },
+            {
+              "id": "a4",
+              "name": "subject",
+              "value": "={{ $json.body.subject }}",
+              "type": "string"
+            },
+            {
+              "id": "a5",
+              "name": "message",
+              "value": "={{ $json.body.message }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2566e94c-330d-41a3-8a0b-3af4193b5c36",
+      "name": "Normalize Web",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        96
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "76fa6445-7153-42b6-818c-ff4514791769",
+      "name": "Enquiry",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        448,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "readStatus": "unread"
+        },
+        "options": {}
+      },
+      "id": "8cf94057-cac8-4678-935e-8c806a46d06a",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        288
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Y9uEgDIzD0WWCKEf",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b1",
+              "name": "source",
+              "value": "gmail",
+              "type": "string"
+            },
+            {
+              "id": "b2",
+              "name": "customer_name",
+              "value": "={{ $json.from?.value?.[0]?.name || $json.from?.text || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "b3",
+              "name": "customer_email",
+              "value": "={{ $json.from?.value?.[0]?.address || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "b4",
+              "name": "subject",
+              "value": "={{ $json.subject || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "b5",
+              "name": "message",
+              "value": "={{ $json.text || $json.textAsHtml || $json.snippet || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "310fcb36-adf0-4811-9c2f-43d7ab0c22d0",
+      "name": "Normalize Gmail",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"failed\",\"message\":\"Unable to classify enquiry.\"}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "23856cf2-b33c-4947-8588-aa6fa762cb48",
+      "name": "Respond Failed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        864,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c1",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "c2",
+              "name": "source",
+              "value": "={{ $('Enquiry').item.json.source }}",
+              "type": "string"
+            },
+            {
+              "id": "c3",
+              "name": "customer_name",
+              "value": "={{ $('Enquiry').item.json.customer_name }}",
+              "type": "string"
+            },
+            {
+              "id": "c4",
+              "name": "customer_email",
+              "value": "={{ $('Enquiry').item.json.customer_email }}",
+              "type": "string"
+            },
+            {
+              "id": "c5",
+              "name": "subject",
+              "value": "={{ $('Enquiry').item.json.subject }}",
+              "type": "string"
+            },
+            {
+              "id": "c6",
+              "name": "message",
+              "value": "={{ $('Enquiry').item.json.message }}",
+              "type": "string"
+            },
+            {
+              "id": "c7",
+              "name": "category",
+              "value": "={{ $json.category }}",
+              "type": "string"
+            },
+            {
+              "id": "c8",
+              "name": "confidence",
+              "value": "={{ $json.confidence }}",
+              "type": "number"
+            },
+            {
+              "id": "c9",
+              "name": "priority",
+              "value": "={{ $json.priority }}",
+              "type": "string"
+            },
+            {
+              "id": "c10",
+              "name": "sentiment",
+              "value": "={{ $json.sentiment }}",
+              "type": "string"
+            },
+            {
+              "id": "c11",
+              "name": "summary",
+              "value": "={{ $json.summary }}",
+              "type": "string"
+            },
+            {
+              "id": "c12",
+              "name": "reason",
+              "value": "={{ $json.reason }}",
+              "type": "string"
+            },
+            {
+              "id": "c13",
+              "name": "draft_reply",
+              "value": "={{ $json.draft_reply }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2e68a2d6-dd0e-4061-8b95-a42d0b4c3e4b",
+      "name": "Parse & Build Row",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1120,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "17Nktyn6v4WSDrGbp1cyiwovx6nQF8YDofv3ibbehKvY",
+          "mode": "list",
+          "cachedResultName": "Sample Log File",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/17Nktyn6v4WSDrGbp1cyiwovx6nQF8YDofv3ibbehKvY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/17Nktyn6v4WSDrGbp1cyiwovx6nQF8YDofv3ibbehKvY/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "1adf1143-a7b1-48ac-a90a-ab15f8af64c9",
+      "name": "Log to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1280,
+        144
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "q3IMVe4YOynQmXwB",
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "cond1",
+              "leftValue": "={{ $json.source }}",
+              "rightValue": "gmail",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dc655e84-4226-42ba-88d1-60c76ede5552",
+      "name": "Is Gmail Source?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1456,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.customer_email }}",
+        "subject": "=Re: {{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.draft_reply }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "0be3bf27-1d7c-42a5-ab81-2672686f2833",
+      "name": "Send Gmail Reply",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1632,
+        80
+      ],
+      "webhookId": "a98a0514-ac21-4da6-872b-9f798f52bed4",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Y9uEgDIzD0WWCKEf",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"success\", \"category\": $json.category, \"reply\": $json.draft_reply } }}",
+        "options": {}
+      },
+      "id": "f1637ce3-3428-4770-8a46-625789917117",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1632,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        544,
+        432
+      ],
+      "id": "df2f6e8c-8c9d-475a-bb71-5cc4a02343bb",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "ddbV54M3FXjiyPm6",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an AI Customer Support Assistant for a software company.\n\nYour task is to analyze incoming customer enquiries and produce a structured analysis together with a professional email reply.\n\nCustomer Information\n\nSource:\n{{ $json.source }}\n\nCustomer Name:\n{{ $json.customer_name }}\n\nCustomer Email:\n{{ $json.customer_email }}\n\nSubject:\n{{ $json.subject }}\n\nMessage:\n{{ $json.message }}\n\nAnalyze the enquiry and perform the following tasks:\n\n1. Classify the enquiry into EXACTLY ONE category:\n- Sales\n- Support\n- Billing\n- Feedback\n- Other\n\n2. Determine a confidence score from 0 to 100.\n\n3. Determine the priority:\n- Low\n- Medium\n- High\n\n4. Determine the sentiment:\n- Positive\n- Neutral\n- Negative\n\n5. Write a concise summary suitable for logging into Google Sheets (maximum 15 words).\n\n6. Explain briefly why the enquiry belongs to the selected category.\n\n7. Generate a professional email reply.\n\nRules for the email reply:\n\n- Start with:\nHello {{ $json.customer_name }},\n\n- If the customer's name is missing, simply use:\nHello,\n\n- Thank the customer for contacting us.\n\n- Answer the customer's enquiry clearly and professionally.\n\n- If pricing, technical information, or other details are unavailable, politely state that a member of the team will contact them shortly.\n\n- Never invent prices, dates, features, or promises.\n\n- Never mention that you are an AI.\n\n- Never use \"Dear\".\n\n- Never use placeholders like [Your Name].\n\n- End the email with:\n\nBest regards,\n\nAI Customer Support Team\n\nIMPORTANT:\n\nReturn ONLY valid JSON.\n\nDo NOT wrap the response inside markdown.\n\nDo NOT include explanations.\n\nDo NOT include code fences.\n\nReturn EXACTLY this JSON structure.\n\n{\n  \"category\": \"\",\n  \"confidence\": 0,\n  \"priority\": \"\",\n  \"sentiment\": \"\",\n  \"summary\": \"\",\n  \"reason\": \"\",\n  \"draft_reply\": \"\"\n}",
+        "batching": {}
+      },
+      "id": "8224f601-148a-45a5-84f2-a073aaece9f0",
+      "name": "Analyze Enquiry (Groq)",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        624,
+        160
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfor (const item of items) {\n\n  let text = item.json.text || \"\";\n\n  // Remove markdown code fences if Groq returns them\n  text = text.replace(/```json/g, \"\");\n  text = text.replace(/```/g, \"\").trim();\n\n  try {\n    item.json = JSON.parse(text);\n  } catch (err) {\n    throw new Error(\"Invalid JSON returned by AI:\\n\\n\" + text);\n  }\n\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        944,
+        144
+      ],
+      "id": "fc308a61-56c1-4ff3-99b5-0f063ea2f3d8",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Website Form Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Web",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Web": {
+      "main": [
+        [
+          {
+            "node": "Enquiry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enquiry": {
+      "main": [
+        [
+          {
+            "node": "Analyze Enquiry (Groq)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Gmail": {
+      "main": [
+        [
+          {
+            "node": "Enquiry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Build Row": {
+      "main": [
+        [
+          {
+            "node": "Log to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Is Gmail Source?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Gmail Source?": {
+      "main": [
+        [
+          {
+            "node": "Send Gmail Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Analyze Enquiry (Groq)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Enquiry (Groq)": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Parse & Build Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "71bf70f3-3332-400f-9242-f7653fd83f14",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c59faa2da1c27b2f033cedf911d662baf70dd93bde68896e4caa7ff3f341b4c4"
+  },
+  "nodeGroups": [],
+  "id": "cRZQ7oCzYjUyS2l7",
+  "tags": []
+}
