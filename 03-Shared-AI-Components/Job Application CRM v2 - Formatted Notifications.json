@@ -81,7 +81,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=You are an email classifier and structured-data extractor for Ronald Amancio's job application tracker.\n\nDetermine whether this email clearly concerns a job application Ronald already submitted.\n\nQUALIFY:\n- application confirmation or acknowledgement\n- application status update\n- recruiter follow-up about an existing application\n- assessment or coding-test request\n- interview invitation or confirmed interview schedule\n- shortlisting notice\n- request for additional application information\n- rejection notice\n- offer, hiring, or onboarding notice\n\nDO NOT QUALIFY:\n- job alerts, recommended jobs, suggested positions\n- newsletters, marketing, advertisements\n- cold recruiter outreach without evidence of an existing application\n- invitations asking Ronald to apply\n- account verification, password reset, security alert\n- unrelated automated notifications, personal email, spam\n\nImportant:\n- There must be clear evidence of an existing submitted application.\n- Never invent missing values; leave unavailable text fields blank.\n- Identify the originating job board when obvious.\n- For direct company/recruiter messages with no platform, use \"Direct Recruiter\".\n- Do not treat an ATS or assessment provider as the employer unless the email says it is.\n- Extract salary and job-posted date only when explicitly present.\n- For a clear application confirmation, use the received date as dateApplied if no other date is stated.\n- Dates must be YYYY-MM-DD.\n\napplicationStatus must be exactly one of:\nApplied, Application Received, Under Review, Recruiter Contacted, Assessment Requested, Interview Requested, Interview Scheduled, Shortlisted, Additional Information Requested, Rejected, Withdrawn, Offer Received, Hired, Unknown.\n\nCONFIDENCE:\nThe score represents confidence in your classification. Clear application confirmation/interview/rejection/job alert/newsletter: usually 0.95-1.00. Ambiguous recruiter message: around 0.50-0.74. Never return 0 unless the email is missing or unreadable.\n\nReturn only the required structured output.\n\nEMAIL\nSender name: {{ $json.senderName }}\nSender email: {{ $json.senderEmail }}\nSubject: {{ $json.subject }}\nReceived date: {{ $json.receivedDate }}\nGmail message ID: {{ $json.messageId }}\nBody:\n{{ $json.cleanedEmailBody }}",
+        "text": "=You are an expert email classifier and structured-data extractor for Ronald Amancio's Job Application CRM.\n\nDetermine whether the incoming email clearly concerns an actual job application Ronald already submitted.\n\nQUALIFY these emails:\n\n- application submission confirmation\n- application received or acknowledged\n- application under review\n- recruiter follow-up about an existing application\n- screening call invitation\n- assessment or coding challenge\n- technical examination\n- interview invitation\n- interview schedule or reminder\n- shortlisting notice\n- request for additional application information\n- rejection or application declined\n- offer letter or employment offer\n- background check or onboarding request\n- hiring confirmation\n- withdrawal confirmation\n\nFor these messages:\n\nisJobApplicationEmail = true\n\nDO NOT QUALIFY these emails:\n\n- job alerts\n- daily or weekly job digests\n- recommended jobs\n- suggested positions\n- similar jobs\n- job advertisements\n- newsletters\n- marketing or promotional emails\n- invitations to apply with no evidence Ronald already applied\n- privacy-policy updates\n- terms-of-service updates\n- security alerts\n- verification emails\n- password resets\n- unrelated automated notifications\n- personal messages or spam\n\nFor these messages:\n\nisJobApplicationEmail = false\n\nIMPORTANT CLASSIFICATION RULE\n\nAn email containing a job title, employer name, or job vacancy is not automatically an application email.\n\nThere must be evidence that Ronald already submitted an application or that the sender is discussing an existing application.\n\nExamples of qualifying evidence:\n\n- \"Thank you for applying\"\n- \"We received your application\"\n- \"Your application was submitted\"\n- \"Regarding your application\"\n- \"The next step in your application\"\n- \"Please complete this assessment\"\n- \"We would like to invite you to an interview\"\n- \"We regret to inform you\"\n- \"We will not be progressing with your application\"\n- \"We are pleased to offer you\"\n\nEXTRACTION RULES\n\nExtract only information clearly supported by the email.\n\nNever invent or guess missing information.\n\nReturn an empty string for unavailable text fields.\n\nIdentify the originating job board when obvious.\n\nPossible jobBoard values include:\n\n- LinkedIn\n- Indeed\n- JobStreet\n- SEEK\n- OnlineJobs.ph\n- Glassdoor\n- Kalibrr\n- Greenhouse\n- Lever\n- Workable\n- Ashby\n- SmartRecruiters\n- Company Career Website\n- Direct Recruiter\n\nUse \"Direct Recruiter\" when the email comes directly from a recruiter or company and no job board is identified.\n\nDo not treat an applicant tracking system or assessment provider as the employer unless the email explicitly identifies it as the employer.\n\nCOMPANY NAME\n\nExtract the actual hiring company.\n\nDo not use LinkedIn, Indeed, Greenhouse, Workable, TestGorilla, Lever, or another platform as the company unless it is genuinely the employer.\n\nJOB TITLE\n\nExtract the job title related to Ronald's application.\n\nFor non-application emails, return:\n\ncompanyName = \"\"\njobTitle = \"\"\n\nJOB DESCRIPTION\n\nProvide a short summary only when the email contains relevant responsibilities, requirements, or role details.\n\nSALARY\n\nExtract salary only when explicitly mentioned.\n\nInclude currency and payment period when available.\n\nExamples:\n\n- PHP 100,000 per month\n- USD 25 per hour\n- AUD 120,000 per year\n\nJOB POSTED DATE\n\nExtract only when explicitly stated.\n\nNormalize dates to YYYY-MM-DD.\n\nDATE APPLIED\n\nUse an explicit application date when available.\n\nFor a clear application-confirmation email, use the email received date when no other application date is provided.\n\nNormalize dates to YYYY-MM-DD.\n\nAPPLICATION STATUS\n\nUse exactly one of these values:\n\n- Applied\n- Application Received\n- Under Review\n- Recruiter Contacted\n- Assessment Requested\n- Interview Requested\n- Interview Scheduled\n- Shortlisted\n- Additional Information Requested\n- Rejected\n- Withdrawn\n- Offer Received\n- Hired\n- Unknown\n\nStatus rules:\n\n- application submitted or acknowledged → Application Received\n- currently being reviewed → Under Review\n- direct recruiter follow-up → Recruiter Contacted\n- test, coding challenge, or assessment → Assessment Requested\n- interview invitation without a confirmed schedule → Interview Requested\n- confirmed interview date or time → Interview Scheduled\n- advanced to shortlist → Shortlisted\n- documents or additional answers requested → Additional Information Requested\n- declined or not progressing → Rejected\n- candidate or employer confirms withdrawal → Withdrawn\n- formal offer issued → Offer Received\n- onboarding or hiring confirmed → Hired\n- non-application email → Unknown\n\nFor every non-application email, return:\n\nisJobApplicationEmail = false\ncompanyName = \"\"\njobTitle = \"\"\njobDescription = \"\"\nsalaryOffered = \"\"\njobDatePosted = \"\"\ndateApplied = \"\"\napplicationStatus = \"Unknown\"\nrecruiterName = \"\"\nrecruiterEmail = \"\"\napplicationUrl = \"\"\n\nYou may still return jobBoard when the source is obvious.\n\nCONFIDENCE RULES\n\nThe confidence score represents how certain you are that your classification is correct.\n\nExamples:\n\n- explicit application confirmation → 0.99\n- clear interview invitation → 0.99\n- clear rejection email → 0.99\n- obvious job alert → 0.99\n- obvious newsletter → 0.98\n- ambiguous recruiter email → 0.60\n\nNever return 0 unless the email body is missing or unreadable.\n\nReturn only the structured output required by the connected parser.\n\nEMAIL DETAILS\n\nSender name:\n{{ $json.senderName }}\n\nSender email:\n{{ $json.senderEmail }}\n\nSubject:\n{{ $json.subject }}\n\nReceived date:\n{{ $json.receivedDate }}\n\nGmail message ID:\n{{ $json.messageId }}\n\nCleaned email body:\n{{ $json.cleanedEmailBody }}",
         "hasOutputParser": true,
         "batching": {}
       },
@@ -139,7 +139,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        880,
+        976,
         560
       ]
     },
@@ -150,7 +150,7 @@
             "caseSensitive": true,
             "leftValue": "",
             "typeValidation": "strict",
-            "version": 1
+            "version": 2
           },
           "conditions": [
             {
@@ -191,7 +191,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1120,
+        1184,
         560
       ]
     },
@@ -218,21 +218,22 @@
         },
         "sheetName": {
           "__rl": true,
-          "value": "Job Applications",
-          "mode": "name"
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Job Applications",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1UXhAVwXOouKcIBOIFSRLFNBd58S8n9UYVSxgGRkCA6M/edit#gid=0"
         },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
             "Application Key": "={{ $json.applicationKey }}",
-            "Job Board": "={{ $json.jobBoard }}",
             "Company Name": "={{ $json.companyName }}",
+            "Job Board ": "={{ $json.jobBoard }}",
             "Job Title": "={{ $json.jobTitle }}",
             "Job Description": "={{ $json.jobDescription }}",
             "Salary Offered": "={{ $json.salaryOffered }}",
             "Job Date Posted": "={{ $json.jobDatePosted }}",
             "Date Applied": "={{ $json.dateApplied }}",
-            "Last Activity Date": "={{ $json.lastActivityDate }}",
             "Application Status": "={{ $json.applicationStatus }}",
             "Recruiter Name": "={{ $json.recruiterName }}",
             "Recruiter Email": "={{ $json.recruiterEmail }}",
@@ -251,19 +252,21 @@
               "id": "Application Key",
               "displayName": "Application Key",
               "required": false,
-              "defaultMatch": true,
+              "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
-              "id": "Job Board",
-              "displayName": "Job Board",
+              "id": "Job Board ",
+              "displayName": "Job Board ",
               "required": false,
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "Company Name",
@@ -272,7 +275,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "Job Title",
@@ -281,7 +285,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "Job Description",
@@ -290,7 +295,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "Salary Offered",
@@ -299,7 +305,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "Job Date Posted",
@@ -308,7 +315,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "Date Applied",
@@ -317,16 +325,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "Last Activity Date",
-              "displayName": "Last Activity Date",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "Application Status",
@@ -335,7 +335,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "Recruiter Name",
@@ -344,7 +345,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "Recruiter Email",
@@ -353,7 +355,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "Application URL",
@@ -362,7 +365,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "Email Subject",
@@ -371,7 +375,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "Received Date",
@@ -380,7 +385,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "Last Updated",
@@ -389,7 +395,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "Message ID",
@@ -398,7 +405,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "Confidence Score",
@@ -407,7 +415,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             }
           ],
           "attemptToConvertTypes": false,
@@ -569,12 +578,15 @@
         },
         "sheetName": {
           "__rl": true,
+          "value": "gid=0",
           "mode": "list",
-          "value": "https://docs.google.com/spreadsheets/d/1UXhAVwXOouKcIBOIFSRLFNBd58S8n9UYVSxgGRkCA6M/edit#gid=0"
+          "cachedResultName": "Job Applications",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1UXhAVwXOouKcIBOIFSRLFNBd58S8n9UYVSxgGRkCA6M/edit#gid=0"
         },
         "filtersUI": {
           "values": [
             {
+              "lookupColumn": "Application Key",
               "lookupValue": "={{ $json.applicationKey }}"
             }
           ]
@@ -586,8 +598,8 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
       "position": [
-        1360,
-        480
+        1392,
+        416
       ],
       "id": "dc6992ab-27d8-40c1-b9e3-c87fbad10bcb",
       "name": "Find Existing Application",
@@ -764,13 +776,13 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "0ad12176-7796-452d-8e60-1fec9a090486",
+  "versionId": "4a122f87-9eac-4e1c-9cb0-6f01acc3b9c4",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "c59faa2da1c27b2f033cedf911d662baf70dd93bde68896e4caa7ff3f341b4c4"
