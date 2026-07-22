@@ -1,0 +1,1459 @@
+{
+  "name": "Job Application CRM v5.3 - JobStreet Submission Fix",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "q": "in:inbox -from:me -subject:\"New Job Application Added\" -subject:\"Job Application Status Updated\" -subject:\"📌 New Job Application Logged\" -subject:\"🔄 Job Application Status Updated\""
+        }
+      },
+      "id": "f0ed6803-a0e9-4a08-8e1d-dd21a916e075",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -144,
+        560
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Y9uEgDIzD0WWCKEf",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "messageId": "={{ $json.id }}",
+        "simple": false,
+        "options": {}
+      },
+      "id": "ce047a96-02b8-4171-a80f-4e75eee77c53",
+      "name": "Get Live Message",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        80,
+        560
+      ],
+      "webhookId": "70a545b6-b30d-484e-9ae1-6a822424307c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Y9uEgDIzD0WWCKEf",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const msg = $json;\nfunction getHeader(name) {\n  const headers = msg.headers || {};\n  if (headers && !Array.isArray(headers) && typeof headers === 'object') {\n    const key = Object.keys(headers).find(k => k.toLowerCase() === name.toLowerCase());\n    if (key) return String(headers[key] || '');\n  }\n  const payloadHeaders = msg.payload?.headers;\n  if (Array.isArray(payloadHeaders)) {\n    const found = payloadHeaders.find(h => String(h.name || '').toLowerCase() === name.toLowerCase());\n    return String(found?.value || '');\n  }\n  return '';\n}\nfunction htmlToText(html = '') {\n  return String(html).replace(/<style[\\s\\S]*?<\\/style>/gi,' ').replace(/<script[\\s\\S]*?<\\/script>/gi,' ').replace(/<!--[\\s\\S]*?-->/g,' ').replace(/<br\\s*\\/?>/gi,'\\n').replace(/<\\/p>/gi,'\\n').replace(/<\\/div>/gi,'\\n').replace(/<[^>]+>/g,' ').replace(/&nbsp;/gi,' ').replace(/&amp;/gi,'&').replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/&#39;/gi,\"'\").replace(/&quot;/gi,'\"').replace(/[ \\t]+/g,' ').replace(/\\n{3,}/g,'\\n\\n').trim();\n}\nconst from=String(getHeader('from')||msg.from||msg.sender||'').replace(/^From:\\s*/i,'').trim();\nconst subject=String(getHeader('subject')||msg.subject||'').replace(/^Subject:\\s*/i,'').trim();\nconst dateValue=String(getHeader('date')||msg.date||msg.internalDate||new Date().toISOString()).replace(/^Date:\\s*/i,'').trim();\nconst m=from.match(/<([^>]+)>/)||from.match(/[\\w.+-]+@[\\w.-]+\\.[A-Za-z]{2,}/);\nconst senderEmail=m?(m[1]||m[0]):'';\nconst senderName=from.replace(/<[^>]+>/g,'').replace(/^\"|\"$/g,'').trim();\nlet receivedDate; try { if(/^\\d+$/.test(dateValue)) receivedDate=new Date(Number(dateValue)).toISOString(); else { const d=new Date(dateValue); receivedDate=Number.isNaN(d.getTime())?new Date().toISOString():d.toISOString(); } } catch { receivedDate=new Date().toISOString(); }\nconst emailBody=msg.text||msg.textPlain||htmlToText(msg.html||msg.textHtml||'')||msg.snippet||'';\nreturn [{json:{senderName,senderEmail,subject,receivedDate,messageId:msg.id||msg.messageId||'',threadId:msg.threadId||'',emailBody:String(emailBody).slice(0,30000),processingMode:msg.processingMode||'live'}}];"
+      },
+      "id": "797ef9bd-1a23-4423-b571-b5c3c15a9e61",
+      "name": "Normalize Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data=$json;\nfunction decode(v=''){return String(v).replace(/&nbsp;/gi,' ').replace(/&amp;/gi,'&').replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/&#39;/gi,\"'\").replace(/&quot;/gi,'\\\"').replace(/&#x27;/gi,\"'\").replace(/&#x2F;/gi,'/');}\nlet text=decode(data.emailBody||'').replace(/<style[\\s\\S]*?<\\/style>/gi,' ').replace(/<script[\\s\\S]*?<\\/script>/gi,' ').replace(/<!--[\\s\\S]*?-->/g,' ').replace(/<br\\s*\\/?>/gi,'\\n').replace(/<\\/p>/gi,'\\n').replace(/<\\/div>/gi,'\\n').replace(/<[^>]+>/g,' ');\ntext=text.replace(/https?:\\/\\/[^\\s<>\"']*(?:trk|track|tracking|utm_|click|redirect|unsubscribe)[^\\s<>\"']*/gi,'[link removed]').replace(/https?:\\/\\/[^\\s<>\"']{180,}/gi,'[long link removed]').replace(/^\\s*unsubscribe.*$/gim,'').replace(/^\\s*manage (your )?preferences.*$/gim,'').replace(/^\\s*email preferences.*$/gim,'').replace(/^\\s*privacy policy.*$/gim,'').replace(/^\\s*view (this )?email in (your )?browser.*$/gim,'').replace(/^\\s*this email was sent to.*$/gim,'').replace(/^\\s*you are receiving this email because.*$/gim,'').replace(/\\r/g,'').replace(/[ \\t]+/g,' ').replace(/\\n[ \\t]+/g,'\\n').replace(/\\n{3,}/g,'\\n\\n').trim();\nreturn [{json:{...data,cleanedEmailBody:text.slice(0,4500)}}];"
+      },
+      "id": "77e88c96-9b40-4b9c-b63a-969bfb419d6a",
+      "name": "Clean Email Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        688,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Classify and extract one job-application lifecycle email for Ronald Amancio.\n\nQUALIFY only messages about a job Ronald already applied to:\n- application received/submitted/under review\n- recruiter follow-up\n- assessment or coding challenge\n- interview invitation or schedule\n- shortlisting\n- request for information\n- rejection or withdrawal\n- offer, hiring, background check, or onboarding\n\nDO NOT QUALIFY job alerts, recommended jobs, advertisements, newsletters,\npromotions, invitations to apply, privacy/security/account messages, or unrelated mail.\n\nExtract only facts explicitly present. Never guess.\n\nUse exactly one applicationStatus:\nApplied, Application Received, Under Review, Recruiter Contacted,\nAssessment Requested, Interview Requested, Interview Scheduled,\nShortlisted, Additional Information Requested, Rejected, Withdrawn,\nOffer Received, Hired, Unknown.\n\nStatus mapping:\n- submitted/acknowledged → Application Received\n- assessment/test → Assessment Requested\n- interview invitation without date → Interview Requested\n- interview with confirmed date/time → Interview Scheduled\n- declined/not progressing → Rejected\n- formal offer → Offer Received\n- onboarding/hiring confirmed → Hired\n- non-application → Unknown\n\nFor non-application messages, return empty strings for all extracted text fields.\nIdentify the actual employer, not the job board or ATS.\nUse received date as dateApplied for a clear application confirmation when no date is stated.\nDates must be YYYY-MM-DD.\nReturn only the connected structured output.\n\nSender: {{ $json.senderName }} <{{ $json.senderEmail }}>\nSubject: {{ $json.subject }}\nReceived: {{ $json.receivedDate }}\n\nBody:\n{{ $json.cleanedEmailBody }}",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "id": "8574a5ac-78d2-40ca-ab66-6a2590368b48",
+      "name": "Extract Job Application",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        1824,
+        528
+      ],
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 60000
+    },
+    {
+      "parameters": {
+        "model": "llama-3.1-8b-instant",
+        "options": {
+          "temperature": 0
+        }
+      },
+      "id": "afea3129-0cf3-445b-aac0-2f0166ca69f5",
+      "name": "Groq Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        800
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "ddbV54M3FXjiyPm6",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"type\": \"object\", \"properties\": {\"isJobApplicationEmail\": {\"type\": \"boolean\"}, \"confidence\": {\"type\": \"number\", \"minimum\": 0, \"maximum\": 1}, \"jobBoard\": {\"type\": \"string\"}, \"companyName\": {\"type\": \"string\"}, \"jobTitle\": {\"type\": \"string\"}, \"jobDescription\": {\"type\": \"string\"}, \"salaryOffered\": {\"type\": \"string\"}, \"jobDatePosted\": {\"type\": \"string\"}, \"dateApplied\": {\"type\": \"string\"}, \"applicationStatus\": {\"type\": \"string\", \"enum\": [\"Applied\", \"Application Received\", \"Under Review\", \"Recruiter Contacted\", \"Assessment Requested\", \"Interview Requested\", \"Interview Scheduled\", \"Shortlisted\", \"Additional Information Requested\", \"Rejected\", \"Withdrawn\", \"Offer Received\", \"Hired\", \"Unknown\"]}, \"recruiterName\": {\"type\": \"string\"}, \"recruiterEmail\": {\"type\": \"string\"}, \"applicationUrl\": {\"type\": \"string\"}, \"reason\": {\"type\": \"string\"}}, \"required\": [\"isJobApplicationEmail\", \"confidence\", \"jobBoard\", \"companyName\", \"jobTitle\", \"jobDescription\", \"salaryOffered\", \"jobDatePosted\", \"dateApplied\", \"applicationStatus\", \"recruiterName\", \"recruiterEmail\", \"applicationUrl\", \"reason\"], \"additionalProperties\": false}"
+      },
+      "id": "97cbcecd-ccbb-4bfc-b5b0-32124dd769ac",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1968,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $('Normalize Email').item.json;\nconst raw = $json.output ?? $json.deterministicOutput ?? $json;\n\nconst allowedStatuses = new Set([\n  'Applied',\n  'Application Received',\n  'Under Review',\n  'Recruiter Contacted',\n  'Assessment Requested',\n  'Interview Requested',\n  'Interview Scheduled',\n  'Shortlisted',\n  'Additional Information Requested',\n  'Rejected',\n  'Withdrawn',\n  'Offer Received',\n  'Hired',\n  'Unknown'\n]);\n\nconst clean = value =>\n  value == null ? '' : String(value).trim();\n\nfunction dateOnly(value) {\n  const text = clean(value);\n\n  if (!text) {\n    return '';\n  }\n\n  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(text)) {\n    return text;\n  }\n\n  const parsed = new Date(text);\n\n  return Number.isNaN(parsed.getTime())\n    ? ''\n    : parsed.toISOString().slice(0, 10);\n}\n\nfunction slug(value) {\n  return clean(value)\n    .toLowerCase()\n    .normalize('NFKD')\n    .replace(/[\\u0300-\\u036f]/g, '')\n    .replace(/&/g, ' and ')\n    .replace(/[^a-z0-9]+/g, '-')\n    .replace(/^-+|-+$/g, '')\n    .replace(/-+/g, '-');\n}\n\nconst isQualified =\n  raw.isJobApplicationEmail === true;\n\nconst confidence = Math.max(\n  0,\n  Math.min(1, Number(raw.confidence || 0))\n);\n\nconst applicationStatus =\n  allowedStatuses.has(raw.applicationStatus)\n    ? raw.applicationStatus\n    : 'Unknown';\n\nconst companyName = clean(raw.companyName);\nconst jobTitle = clean(raw.jobTitle);\n\nconst companySlug = slug(companyName);\nconst jobSlug = slug(jobTitle);\n\nconst applicationKey =\n  companySlug && jobSlug\n    ? `${companySlug}--${jobSlug}`\n    : '';\n\nconst receivedDate =\n  source.receivedDate || new Date().toISOString();\n\nconst lastActivityDate =\n  dateOnly(receivedDate);\n\nconst dateApplied =\n  dateOnly(raw.dateApplied) ||\n  (\n    isQualified &&\n    ['Applied', 'Application Received'].includes(applicationStatus)\n      ? lastActivityDate\n      : ''\n  );\n\nreturn [{\n  json: {\n    isJobApplicationEmail: isQualified,\n    confidence,\n    applicationKey,\n    jobBoard: clean(raw.jobBoard),\n    companyName,\n    jobTitle,\n    jobDescription: clean(raw.jobDescription),\n    salaryOffered: clean(raw.salaryOffered),\n    jobDatePosted: dateOnly(raw.jobDatePosted),\n    dateApplied,\n    lastActivityDate,\n    applicationStatus,\n    recruiterName: clean(raw.recruiterName),\n    recruiterEmail:\n      clean(raw.recruiterEmail) ||\n      clean(source.senderEmail),\n    applicationUrl: clean(raw.applicationUrl),\n    emailSubject: clean(source.subject),\n    receivedDate,\n    lastUpdated: new Date().toISOString(),\n    messageId: clean(source.messageId),\n    reason: clean(raw.reason),\n    processingMode:\n      source.processingMode ||\n      $json.processingMode ||\n      'live'\n  }\n}];"
+      },
+      "id": "30e1bc0f-c3ef-408d-b4c8-d30665755d12",
+      "name": "Build Application Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2096,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e6bffbd1-3e1c-49ee-860a-546263deb320",
+              "leftValue": "={{ $json.isJobApplicationEmail }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "8f73453c-75e1-4ff1-b983-ca0370696e4b",
+              "leftValue": "={{ $json.confidence }}",
+              "rightValue": 0.75,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "f78aeb59-c8db-4a84-a2eb-ad4a9b960880",
+              "leftValue": "={{ $json.applicationKey }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "06a02f71-0bf0-4231-aeae-59444cd5d7ca",
+      "name": "Qualified Application?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2320,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const current = $('Build Application Record').item.json;\nconst existing = $json || {};\n\nconst getExisting = name =>\n  existing[name] ??\n  existing[name.replace(/\\s+/g, '')] ??\n  '';\n\nconst existingKey = getExisting('Application Key');\nconst isNewApplication = !existingKey;\n\nconst previousStatus = getExisting('Application Status');\nconst existingLastActivity = getExisting('Last Activity Date');\nconst currentLastActivity = current.lastActivityDate || '';\n\nconst firstNonEmpty = (newValue, oldValue) => {\n  const text = newValue == null ? '' : String(newValue).trim();\n  return text !== '' ? newValue : (oldValue ?? '');\n};\n\nconst currentTime = currentLastActivity\n  ? new Date(`${currentLastActivity}T00:00:00Z`).getTime()\n  : 0;\n\nconst existingTime = existingLastActivity\n  ? new Date(`${existingLastActivity}T00:00:00Z`).getTime()\n  : 0;\n\nconst incomingIsOlder =\n  current.processingMode === 'backfill' &&\n  existingKey &&\n  currentTime > 0 &&\n  existingTime > 0 &&\n  currentTime < existingTime;\n\nconst selectedStatus = incomingIsOlder\n  ? previousStatus\n  : firstNonEmpty(current.applicationStatus, previousStatus);\n\nconst selectedLastActivity = incomingIsOlder\n  ? existingLastActivity\n  : firstNonEmpty(current.lastActivityDate, existingLastActivity);\n\nconst merged = {\n  ...current,\n  applicationKey: current.applicationKey,\n  jobBoard: firstNonEmpty(current.jobBoard, getExisting('Job Board')),\n  companyName: firstNonEmpty(current.companyName, getExisting('Company Name')),\n  jobTitle: firstNonEmpty(current.jobTitle, getExisting('Job Title')),\n  jobDescription: firstNonEmpty(current.jobDescription, getExisting('Job Description')),\n  salaryOffered: firstNonEmpty(current.salaryOffered, getExisting('Salary Offered')),\n  jobDatePosted: firstNonEmpty(current.jobDatePosted, getExisting('Job Date Posted')),\n  dateApplied: firstNonEmpty(getExisting('Date Applied'), current.dateApplied),\n  lastActivityDate: selectedLastActivity,\n  applicationStatus: selectedStatus,\n  recruiterName: firstNonEmpty(current.recruiterName, getExisting('Recruiter Name')),\n  recruiterEmail: firstNonEmpty(current.recruiterEmail, getExisting('Recruiter Email')),\n  applicationUrl: firstNonEmpty(current.applicationUrl, getExisting('Application URL')),\n  emailSubject: incomingIsOlder\n    ? firstNonEmpty(getExisting('Email Subject'), current.emailSubject)\n    : current.emailSubject,\n  receivedDate: incomingIsOlder\n    ? firstNonEmpty(getExisting('Received Date'), current.receivedDate)\n    : current.receivedDate,\n  lastUpdated: new Date().toISOString(),\n  messageId: incomingIsOlder\n    ? firstNonEmpty(getExisting('Message ID'), current.messageId)\n    : current.messageId,\n  confidence: incomingIsOlder\n    ? Number(getExisting('Confidence Score') || current.confidence || 0)\n    : current.confidence,\n  processingMode: current.processingMode || 'live',\n  isNewApplication,\n  previousStatus,\n  incomingIsOlder,\n  statusChanged:\n    !isNewApplication &&\n    !incomingIsOlder &&\n    previousStatus !== '' &&\n    previousStatus !== current.applicationStatus\n};\n\nreturn [{ json: merged }];"
+      },
+      "id": "3681d3b8-6beb-4e7f-974f-06ce63f8e934",
+      "name": "Merge Existing Application",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2768,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1UXhAVwXOouKcIBOIFSRLFNBd58S8n9UYVSxgGRkCA6M",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Job Applications",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1UXhAVwXOouKcIBOIFSRLFNBd58S8n9UYVSxgGRkCA6M/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Application Key": "={{ $json.applicationKey }}",
+            "Company Name": "={{ $json.companyName }}",
+            "Job Title": "={{ $json.jobTitle }}",
+            "Job Description": "={{ $json.jobDescription }}",
+            "Salary Offered": "={{ $json.salaryOffered }}",
+            "Job Date Posted": "={{ $json.jobDatePosted }}",
+            "Date Applied": "={{ $json.dateApplied }}",
+            "Application Status": "={{ $json.applicationStatus }}",
+            "Recruiter Name": "={{ $json.recruiterName }}",
+            "Recruiter Email": "={{ $json.recruiterEmail }}",
+            "Application URL": "={{ $json.applicationUrl }}",
+            "Email Subject": "={{ $json.emailSubject }}",
+            "Received Date": "={{ $json.receivedDate }}",
+            "Last Updated": "={{ $json.lastUpdated }}",
+            "Message ID": "={{ $json.messageId }}",
+            "Confidence Score": "={{ $json.confidence }}",
+            "Job Board ": "={{ $json.jobBoard }}"
+          },
+          "matchingColumns": [
+            "Application Key"
+          ],
+          "schema": [
+            {
+              "id": "Application Key",
+              "displayName": "Application Key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Job Board ",
+              "displayName": "Job Board ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Company Name",
+              "displayName": "Company Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Job Title",
+              "displayName": "Job Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Job Description",
+              "displayName": "Job Description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Salary Offered",
+              "displayName": "Salary Offered",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Job Date Posted",
+              "displayName": "Job Date Posted",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Date Applied",
+              "displayName": "Date Applied",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Application Status",
+              "displayName": "Application Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Recruiter Name",
+              "displayName": "Recruiter Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Recruiter Email",
+              "displayName": "Recruiter Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Application URL",
+              "displayName": "Application URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email Subject",
+              "displayName": "Email Subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Received Date",
+              "displayName": "Received Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Last Updated",
+              "displayName": "Last Updated",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Message ID",
+              "displayName": "Message ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Confidence Score",
+              "displayName": "Confidence Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "6d0f4cd4-c57e-480c-96fd-321d203aec65",
+      "name": "Upsert Job Application",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2992,
+        368
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "q3IMVe4YOynQmXwB",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "548e145c-1e86-4320-8c33-de9920a3ef6e",
+              "leftValue": "={{ $('Merge Existing Application').item.json.isNewApplication }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a515578b-98a5-4623-98bd-7efe6a6c5bca",
+      "name": "New Application?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3200,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "ronsynt@gmail.com",
+        "subject": "📌 New Job Application Logged",
+        "message": "=<div style=\"font-family:Arial,sans-serif;max-width:640px;margin:auto;color:#202124\">\n  <h2 style=\"margin-bottom:6px\">📌 New Job Application Logged</h2>\n  <p style=\"margin-top:0;color:#5f6368\">Your Google Sheets tracker was updated successfully.</p>\n\n  <table style=\"width:100%;border-collapse:collapse;margin-top:20px\">\n    <tr><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\"><strong>Company</strong></td><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\">{{ $('Merge Existing Application').item.json.companyName || 'Not identified' }}</td></tr>\n    <tr><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\"><strong>Position</strong></td><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\">{{ $('Merge Existing Application').item.json.jobTitle || 'Not identified' }}</td></tr>\n    <tr><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\"><strong>Status</strong></td><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\">{{ $('Merge Existing Application').item.json.applicationStatus }}</td></tr>\n    <tr><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\"><strong>Job Board</strong></td><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\">{{ $('Merge Existing Application').item.json.jobBoard || 'Direct Recruiter' }}</td></tr>\n    <tr><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\"><strong>Recruiter</strong></td><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\">{{ $('Merge Existing Application').item.json.recruiterName || $('Merge Existing Application').item.json.recruiterEmail || 'Not available' }}</td></tr>\n    <tr><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\"><strong>Date Applied</strong></td><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\">{{ $('Merge Existing Application').item.json.dateApplied || 'Not available' }}</td></tr>\n    <tr><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\"><strong>Last Activity</strong></td><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\">{{ $('Merge Existing Application').item.json.lastActivityDate }}</td></tr>\n    <tr><td style=\"padding:9px\"><strong>AI Confidence</strong></td><td style=\"padding:9px\">{{ Math.round(($('Merge Existing Application').item.json.confidence || 0) * 100) }}%</td></tr>\n  </table>\n\n  <p style=\"margin-top:24px;color:#5f6368;font-size:13px\">Automated by n8n Job Application CRM.</p>\n</div>",
+        "options": {}
+      },
+      "id": "466b49d5-fe88-4c5f-ae73-040fa4db492a",
+      "name": "Send New Application Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        3424,
+        208
+      ],
+      "webhookId": "96206600-4df2-4938-9c5f-4e5dbb65385c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Y9uEgDIzD0WWCKEf",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "87c22ea3-6789-4f99-919b-e6f35db40ddf",
+              "leftValue": "={{ $('Merge Existing Application').item.json.statusChanged }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "bf193acc-0d5d-4dfc-910f-77f27cb38d86",
+      "name": "Status Changed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3424,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "ronsynt@gmail.com",
+        "subject": "🔄 Job Application Status Updated",
+        "message": "=<div style=\"font-family:Arial,sans-serif;max-width:640px;margin:auto;color:#202124\">\n  <h2 style=\"margin-bottom:6px\">🔄 Job Application Status Updated</h2>\n  <p style=\"margin-top:0;color:#5f6368\">An existing application changed status.</p>\n\n  <table style=\"width:100%;border-collapse:collapse;margin-top:20px\">\n    <tr><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\"><strong>Company</strong></td><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\">{{ $('Merge Existing Application').item.json.companyName }}</td></tr>\n    <tr><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\"><strong>Position</strong></td><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\">{{ $('Merge Existing Application').item.json.jobTitle }}</td></tr>\n    <tr><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\"><strong>Previous Status</strong></td><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\">{{ $('Merge Existing Application').item.json.previousStatus || 'Unknown' }}</td></tr>\n    <tr><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\"><strong>New Status</strong></td><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\"><strong>{{ $('Merge Existing Application').item.json.applicationStatus }}</strong></td></tr>\n    <tr><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\"><strong>Recruiter</strong></td><td style=\"padding:9px;border-bottom:1px solid #e5e7eb\">{{ $('Merge Existing Application').item.json.recruiterName || $('Merge Existing Application').item.json.recruiterEmail || 'Not available' }}</td></tr>\n    <tr><td style=\"padding:9px\"><strong>Last Activity</strong></td><td style=\"padding:9px\">{{ $('Merge Existing Application').item.json.lastActivityDate }}</td></tr>\n  </table>\n\n  <p style=\"margin-top:24px;color:#5f6368;font-size:13px\">Your Google Sheets tracker was updated automatically.</p>\n</div>",
+        "options": {}
+      },
+      "id": "e48bec12-ceff-47a5-9ca4-562d807425d3",
+      "name": "Send Status Update Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        3648,
+        400
+      ],
+      "webhookId": "0bff8c76-c583-401d-b297-cf99ede8429e",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Y9uEgDIzD0WWCKEf",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Job Application CRM v5 — Hybrid Parser\n\n### Why Version 5 uses fewer Groq tokens\n\nPredictable application confirmations are parsed with JavaScript first.\n\nExamples commonly handled without AI:\n- Indeed application submitted\n- LinkedIn application sent\n- JobStreet application confirmation\n- Greenhouse/Lever/Workday acknowledgement\n- Thank you for applying\n- We received your application\n\nGroq is reserved for:\n- interview invitations and schedules\n- assessments and coding challenges\n- recruiter follow-ups\n- shortlisting\n- rejection messages\n- offers and onboarding\n- ambiguous or unusual application updates\n\n### Required Google Sheet headers\n\nApplication Key\nJob Board\nCompany Name\nJob Title\nJob Description\nSalary Offered\nJob Date Posted\nDate Applied\nLast Activity Date\nApplication Status\nRecruiter Name\nRecruiter Email\nApplication URL\nEmail Subject\nReceived Date\nLast Updated\nMessage ID\nConfidence Score\n\n### Live workflow\n\nPublish only after testing.\n\nNew emails:\n1. pass through the newsletter/job-alert filter;\n2. attempt deterministic parsing;\n3. use Groq only when deterministic extraction is unsafe;\n4. update Google Sheets;\n5. sort newest-first;\n6. send notifications.\n\n### 90-day backfill\n\nRun **Run 90-Day Backfill** manually.\n\nThe backfill:\n- searches likely application emails from the last 90 days;\n- processes oldest-first;\n- uses deterministic parsing whenever possible;\n- waits 8 seconds between historical emails;\n- suppresses notifications;\n- prevents older messages from replacing newer statuses;\n- sorts Google Sheets once after completion.\n\n### Important limitation\n\nA digest containing several applications still produces at most one application row.\nIndividual application confirmation and update emails are handled more reliably.\n\n\n### Version 5.1 correction\n\nBuild Application Record was repaired to remove a malformed duplicated JavaScript expression.\n\nApplication Key is now empty unless both company name and job title are available.\nQualified Application checks that Application Key is not empty.\n\n\n### Version 5.2 model change\n\nGroq Chat Model now uses:\nllama-3.1-8b-instant\n\nReason:\n- predictable confirmations are already handled without AI;\n- the smaller model is sufficient for remaining classification/extraction;\n- it has a larger free-tier daily token allowance than llama-3.3-70b-versatile;\n- output is limited to 500 tokens;\n- email content sent to AI is limited to 2,200 characters;\n- temporary rate-limit failures retry up to four times with a 60-second delay.\n\nUse llama-3.3-70b-versatile only after the historical backfill is complete if you need higher accuracy for future ambiguous live emails.\n\n\n### Version 5.3 correction\nRecognizes JobStreet subjects such as:\n- Your application was successfully submitted\n- Application was successfully submitted\n- Successfully submitted\n\nAlso parses:\n\"Your application for [JOB TITLE] was successfully submitted to [COMPANY]\"\n\nThese confirmations bypass Groq.\n",
+        "height": 520,
+        "width": 430,
+        "color": 5
+      },
+      "id": "d7456351-e2ee-4047-83b7-fc410f217432",
+      "name": "Setup Instructions",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -144,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1UXhAVwXOouKcIBOIFSRLFNBd58S8n9UYVSxgGRkCA6M",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Job Applications",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1UXhAVwXOouKcIBOIFSRLFNBd58S8n9UYVSxgGRkCA6M/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Application Key",
+              "lookupValue": "={{ $json.applicationKey }}"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": false
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2544,
+        368
+      ],
+      "id": "e19dc286-543d-4276-839f-44a3bd3b55d5",
+      "name": "Find Existing Application",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "q3IMVe4YOynQmXwB",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5610651b-eb55-4f97-9f24-94dbb4b3a459",
+              "name": "processingMode",
+              "value": "live",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "2b1e1761-1fde-4c07-a19e-409c6b53e8ce",
+      "name": "Tag Live Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $json;\n\nfunction decodeMimeHeader(value = '') {\n  // Handles common UTF-8 Base64 encoded words, such as =?UTF-8?B?...?=\n  return String(value).replace(\n    /=\\?UTF-8\\?B\\?([^?]+)\\?=/gi,\n    (_, encoded) => {\n      try {\n        return Buffer.from(encoded, 'base64').toString('utf8');\n      } catch {\n        return _;\n      }\n    }\n  );\n}\n\nconst senderName = decodeMimeHeader(item.senderName || '');\nconst subject = decodeMimeHeader(item.subject || '');\nconst sender = String(item.senderEmail || '').toLowerCase();\nconst body = String(item.cleanedEmailBody || '');\n\nconst normalizedSubject = subject.toLowerCase();\nconst normalizedBody = body.toLowerCase();\nconst text = `${normalizedSubject}\\n${sender}\\n${normalizedBody.slice(0, 3000)}`;\n\nconst strongApplicationEvidence = [\n  'application submitted',\n  'your application was successfully submitted',\n  'application was successfully submitted',\n  'successfully submitted',\n  'application received',\n  'application confirmation',\n  'your application has been received',\n  'your application has been submitted',\n  'application was sent',\n  'your application was sent',\n  'successfully applied',\n  'thank you for applying',\n  'thanks for applying',\n  'we received your application',\n  'we have received your application',\n  'regarding your application',\n  'application status',\n  'application update',\n  'application forward update',\n  'application has been reviewed',\n  'jobs you applied for',\n  'job you applied for',\n  'recent activity in jobs you applied for',\n  'new activity in jobs you applied for',\n  'there has been recent activity in jobs you applied for',\n  'next step in your application',\n  'next steps of our hiring process',\n  'next stage of our hiring process',\n  'move forward with the hiring process',\n  'selected to proceed',\n  'selected to move forward',\n  'invite you to an interview',\n  'interview invitation',\n  'interview schedule',\n  'interview scheduled',\n  'coding challenge',\n  'technical assessment',\n  'complete this assessment',\n  'shortlisted',\n  'we regret to inform you',\n  'not be progressing with your application',\n  'will not be moving forward',\n  'other candidates were better aligned',\n  'pleased to offer you',\n  'offer letter',\n  'background check',\n  'pre-employment requirements',\n  'onboarding'\n];\n\nconst obviousNonApplication = [\n  'job alert',\n  'jobs alert',\n  'daily job digest',\n  'weekly job digest',\n  'recommended jobs',\n  'suggested jobs',\n  'similar jobs',\n  'jobs you may be interested in',\n  'new jobs for you',\n  'new job matches',\n  'apply now to these jobs',\n  'latest job openings',\n  'latest vacancies',\n  'vacancies this week',\n  'newsletter',\n  'manage preferences',\n  'unsubscribe',\n  'privacy notice',\n  'privacy policy update',\n  'terms of service update',\n  'security alert',\n  'password reset',\n  'verify your email',\n  'course enrollment',\n  'enroll today',\n  'promotional'\n];\n\nconst knownRecruitingPlatform = [\n  'indeed', 'linkedin', 'jobstreet', 'seek', 'onlinejobs',\n  'greenhouse', 'lever', 'workable', 'ashby', 'smartrecruiters',\n  'workday', 'jobvite', 'bamboohr', 'successfactors',\n  'oraclecloud', 'icims', 'taleo', 'testgorilla', 'hirevue',\n  'careers', 'recruit', 'talent'\n].some(token => sender.includes(token));\n\nconst hasStrongApplicationEvidence =\n  strongApplicationEvidence.some(phrase => text.includes(phrase));\n\nconst hasObviousNonApplicationEvidence =\n  obviousNonApplication.some(phrase => text.includes(phrase));\n\nconst subjectLooksRecruitmentRelated =\n  /\\b(application|interview|assessment|offer|candidate|hiring|recruiter|recruitment|shortlisted)\\b/i\n    .test(subject);\n\nlet shouldUseAI = false;\nlet prefilterReason = '';\n\nif (hasStrongApplicationEvidence) {\n  shouldUseAI = true;\n  prefilterReason = 'Clear application-lifecycle language was detected.';\n} else if (hasObviousNonApplicationEvidence) {\n  shouldUseAI = false;\n  prefilterReason = 'The message appears to be a job alert, digest, newsletter, promotion, or unrelated notification.';\n} else if (knownRecruitingPlatform && subjectLooksRecruitmentRelated) {\n  shouldUseAI = true;\n  prefilterReason = 'A known recruiting sender and a recruitment-related subject were detected.';\n} else if (subjectLooksRecruitmentRelated) {\n  shouldUseAI = true;\n  prefilterReason = 'The subject may concern an existing application.';\n} else {\n  shouldUseAI = false;\n  prefilterReason = 'No meaningful evidence of an existing application or application update was detected.';\n}\n\nreturn [{\n  json: {\n    ...item,\n    senderName,\n    subject,\n    shouldUseAI,\n    prefilterReason\n  }\n}];"
+      },
+      "id": "3fb47f1b-8ec4-4337-8584-b4397c6c0d17",
+      "name": "Quick Recruitment Filter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3ce507e5-a79e-47f8-ac18-51ad95d344be",
+              "leftValue": "={{ $json.shouldUseAI }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "85b9c066-fe89-4a78-b7e0-e78844cc6f59",
+      "name": "Needs AI Classification?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1584,
+        528
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "f3e9a0db-d5d6-43fc-ba80-9cfcc6b0bc82",
+      "name": "Run 90-Day Backfill",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -144,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "returnAll": true,
+        "filters": {
+          "q": "newer_than:90d in:anywhere -from:me -category:promotions -category:social -subject:\"New Job Application Added\" -subject:\"Job Application Status Updated\" -subject:\"📌 New Job Application Logged\" -subject:\"🔄 Job Application Status Updated\" {\"application submitted\" \"application received\" \"application confirmation\" \"thank you for applying\" \"thanks for applying\" \"your application was sent\" \"application update\" \"regarding your application\" \"interview invitation\" \"interview scheduled\" \"technical assessment\" \"coding challenge\" \"selected to proceed\" \"move forward with the hiring process\" \"we regret to inform you\" \"not be progressing with your application\" \"offer letter\" \"pleased to offer you\"}"
+        }
+      },
+      "id": "30d26994-9a64-4610-aa93-61ca35babb99",
+      "name": "Search Gmail Last 90 Days",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        80,
+        1040
+      ],
+      "webhookId": "d037c81b-ca06-4871-ac33-9f68ec21a09b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Y9uEgDIzD0WWCKEf",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "id": "b88dbf87-e54d-4274-bb2e-b785c551cc73",
+      "name": "Backfill One Email at a Time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        528,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "id": "9fcf72b8-15ec-4a2e-ab85-63e4d21009c9",
+      "name": "Backfill Rate Limit Delay",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        752,
+        1040
+      ],
+      "webhookId": "1b49c258-d84c-4da9-af65-3c4f0430fae7"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "messageId": "={{ $json.id }}",
+        "simple": false,
+        "options": {}
+      },
+      "id": "565b70b6-267e-4d44-8299-94ef8658b1d3",
+      "name": "Get Backfill Message",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        976,
+        1040
+      ],
+      "webhookId": "b6215b53-48df-4dbd-a7f0-6a9a5d8b712c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Y9uEgDIzD0WWCKEf",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "76884c8c-2365-4095-929a-d8df1d721cf3",
+              "name": "processingMode",
+              "value": "backfill",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "a49d534a-c154-48a1-8b3e-98fcdfc17007",
+      "name": "Tag Backfill Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1200,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/1UXhAVwXOouKcIBOIFSRLFNBd58S8n9UYVSxgGRkCA6M:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "{\"requests\": [{\"sortRange\": {\"range\": {\"sheetId\": 0, \"startRowIndex\": 1}, \"sortSpecs\": [{\"dimensionIndex\": 8, \"sortOrder\": \"DESCENDING\"}]}}]}",
+        "options": {}
+      },
+      "id": "03313611-e07d-4170-9463-3353b5770979",
+      "name": "Sort Live Sheet Newest First",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3440,
+        288
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "q3IMVe4YOynQmXwB",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c7c417e5-b847-46d6-96a7-e9f34c31c78a",
+              "leftValue": "={{ $('Merge Existing Application').item.json.processingMode }}",
+              "rightValue": "backfill",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9fb8bf4c-c2b0-47b0-ad2f-0124727269b7",
+      "name": "Backfill Mode?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3216,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return items;"
+      },
+      "id": "7f0b0121-c11b-45b5-badb-49311cda6374",
+      "name": "Finish Current Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3408,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "874bbfc7-1c12-430a-bfd3-e8be9b47359d",
+              "leftValue": "={{ $json.processingMode || $('Build Application Record').item.json.processingMode || 'live' }}",
+              "rightValue": "backfill",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ab3933b4-79c7-4036-8179-a628d9e65ebb",
+      "name": "Continue Backfill?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3632,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\n\nfunction timestamp(item) {\n  const value =\n    item.json.internalDate ||\n    item.json.date ||\n    item.json.receivedDate ||\n    0;\n\n  const numeric = Number(value);\n  if (Number.isFinite(numeric) && numeric > 0) {\n    return numeric;\n  }\n\n  const parsed = new Date(value).getTime();\n  return Number.isNaN(parsed) ? 0 : parsed;\n}\n\nrows.sort((a, b) => timestamp(a) - timestamp(b));\nreturn rows;"
+      },
+      "id": "fc12977d-81c8-413b-a592-a6223d12a099",
+      "name": "Sort Backfill Oldest First",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/1UXhAVwXOouKcIBOIFSRLFNBd58S8n9UYVSxgGRkCA6M:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "{\"requests\": [{\"sortRange\": {\"range\": {\"sheetId\": 0, \"startRowIndex\": 1}, \"sortSpecs\": [{\"dimensionIndex\": 8, \"sortOrder\": \"DESCENDING\"}]}}]}",
+        "options": {}
+      },
+      "id": "90f3d710-855b-43cf-885e-1866856077ea",
+      "name": "Sort Backfill Results Newest First",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        752,
+        1280
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "q3IMVe4YOynQmXwB",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    success: true,\n    message: 'The 90-day backfill completed and the Job Applications sheet was sorted newest-first.'\n  }\n}];"
+      },
+      "id": "44c59fd8-f44b-40c3-bc17-667ae1063a1c",
+      "name": "Backfill Complete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        976,
+        1280
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $json;\nconst subject = String(item.subject || '');\nconst senderEmail = String(item.senderEmail || '').toLowerCase();\nconst body = String(item.cleanedEmailBody || item.emailBody || '');\nconst text = `${subject}\\n${body}`;\n\nconst clean = value => String(value || '')\n  .replace(/\\s+/g, ' ')\n  .replace(/^[\\s:–—-]+|[\\s:–—-]+$/g, '')\n  .trim();\n\nconst dateOnly = value => {\n  const parsed = new Date(value || '');\n  return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);\n};\n\nfunction inferBoard() {\n  if (senderEmail.includes('indeed')) return 'Indeed';\n  if (senderEmail.includes('linkedin')) return 'LinkedIn';\n  if (senderEmail.includes('jobstreet')) return 'JobStreet';\n  if (senderEmail.includes('seek')) return 'SEEK';\n  if (senderEmail.includes('onlinejobs')) return 'OnlineJobs.ph';\n  if (senderEmail.includes('greenhouse')) return 'Greenhouse';\n  if (senderEmail.includes('lever')) return 'Lever';\n  if (senderEmail.includes('workable')) return 'Workable';\n  if (senderEmail.includes('ashby')) return 'Ashby';\n  if (senderEmail.includes('smartrecruiters')) return 'SmartRecruiters';\n  if (senderEmail.includes('workday')) return 'Workday';\n  if (senderEmail.includes('jobvite')) return 'Jobvite';\n  if (senderEmail.includes('bamboohr')) return 'BambooHR';\n  if (senderEmail.includes('successfactors')) return 'SuccessFactors';\n  if (senderEmail.includes('oracle')) return 'Oracle Careers';\n  if (senderEmail.includes('icims')) return 'iCIMS';\n  if (senderEmail.includes('taleo')) return 'Taleo';\n  return '';\n}\n\nconst normalized = text.toLowerCase();\n\nconst predictable = [\n  'application submitted',\n  'application received',\n  'application confirmation',\n  'your application was sent',\n  'application was sent',\n  'thank you for applying',\n  'thanks for applying',\n  'we received your application',\n  'we have received your application',\n  'successfully applied',\n  'successfully submitted',\n  'your application has been submitted',\n  'your application has been received',\n  'your application was successfully submitted'\n].some(p => normalized.includes(p));\n\nconst complex = [\n  'interview invitation',\n  'interview scheduled',\n  'invite you to an interview',\n  'technical assessment',\n  'coding challenge',\n  'selected to proceed',\n  'selected to move forward',\n  'we regret to inform you',\n  'not be progressing with your application',\n  'will not be moving forward',\n  'pleased to offer you',\n  'offer letter',\n  'background check',\n  'onboarding',\n  'shortlisted'\n].some(p => normalized.includes(p));\n\nlet jobTitle = '';\nlet companyName = '';\n\nconst combinedPatterns = [\n  /your application for\\s+(.+?)\\s+was successfully submitted to\\s+([^\\n|.]{2,160})/i,\n  /your application for\\s+(.+?)\\s+has been submitted to\\s+([^\\n|.]{2,160})/i,\n  /application for\\s+(.+?)\\s+was successfully submitted to\\s+([^\\n|.]{2,160})/i\n];\n\nfor (const pattern of combinedPatterns) {\n  const m = text.match(pattern);\n  if (m) {\n    jobTitle = clean(m[1]);\n    companyName = clean(m[2]);\n    break;\n  }\n}\n\njobTitle = jobTitle\n  .replace(/\\s+-\\s+permanent.*$/i, '')\n  .replace(/\\s+\\|\\s+.*$/i, '')\n  .trim();\n\ncompanyName = companyName\n  .replace(/\\s+so you might.*$/i, '')\n  .replace(/\\s+each employer.*$/i, '')\n  .trim();\n\nconst matched = predictable && !complex && Boolean(jobTitle) && Boolean(companyName);\n\nif (!matched) {\n  return [{\n    json: {\n      ...item,\n      deterministicMatched: false,\n      deterministicReason: complex\n        ? 'A complex lifecycle update requires AI interpretation.'\n        : 'The predictable parser could not confidently extract both company and job title.'\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...item,\n    deterministicMatched: true,\n    deterministicReason: 'Predictable JobStreet confirmation parsed without AI.',\n    deterministicOutput: {\n      isJobApplicationEmail: true,\n      confidence: 0.99,\n      jobBoard: inferBoard(),\n      companyName,\n      jobTitle,\n      jobDescription: '',\n      salaryOffered: '',\n      jobDatePosted: '',\n      dateApplied: dateOnly(item.receivedDate),\n      applicationStatus: 'Application Received',\n      recruiterName: '',\n      recruiterEmail: senderEmail,\n      applicationUrl: '',\n      reason: 'Predictable application confirmation parsed without AI.'\n    }\n  }\n}];"
+      },
+      "id": "329a5772-256c-4b95-8f09-ae71d1d8676e",
+      "name": "Parse Predictable Confirmation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "314b1d7a-7a38-44cb-b600-326321141ec6",
+              "leftValue": "={{ $json.deterministicMatched }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "00e0411e-0fb5-42ef-b2b0-a890c0074ef0",
+      "name": "Parsed Without AI?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1360,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    output: $json.deterministicOutput\n  }\n}];"
+      },
+      "id": "86789054-fc8b-4be3-a03d-b30bf93f9e77",
+      "name": "Format Deterministic Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        368
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Live Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Live Message": {
+      "main": [
+        [
+          {
+            "node": "Tag Live Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Live Message": {
+      "main": [
+        [
+          {
+            "node": "Normalize Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run 90-Day Backfill": {
+      "main": [
+        [
+          {
+            "node": "Search Gmail Last 90 Days",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Gmail Last 90 Days": {
+      "main": [
+        [
+          {
+            "node": "Sort Backfill Oldest First",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sort Backfill Oldest First": {
+      "main": [
+        [
+          {
+            "node": "Backfill One Email at a Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Backfill One Email at a Time": {
+      "main": [
+        [
+          {
+            "node": "Sort Backfill Results Newest First",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Backfill Rate Limit Delay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Backfill Rate Limit Delay": {
+      "main": [
+        [
+          {
+            "node": "Get Backfill Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Backfill Message": {
+      "main": [
+        [
+          {
+            "node": "Tag Backfill Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Backfill Message": {
+      "main": [
+        [
+          {
+            "node": "Normalize Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sort Backfill Results Newest First": {
+      "main": [
+        [
+          {
+            "node": "Backfill Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Email": {
+      "main": [
+        [
+          {
+            "node": "Clean Email Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean Email Body": {
+      "main": [
+        [
+          {
+            "node": "Quick Recruitment Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quick Recruitment Filter": {
+      "main": [
+        [
+          {
+            "node": "Parse Predictable Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs AI Classification?": {
+      "main": [
+        [
+          {
+            "node": "Extract Job Application",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finish Current Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Extract Job Application",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Extract Job Application",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Job Application": {
+      "main": [
+        [
+          {
+            "node": "Build Application Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Application Record": {
+      "main": [
+        [
+          {
+            "node": "Qualified Application?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qualified Application?": {
+      "main": [
+        [
+          {
+            "node": "Find Existing Application",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finish Current Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Existing Application": {
+      "main": [
+        [
+          {
+            "node": "Merge Existing Application",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Existing Application": {
+      "main": [
+        [
+          {
+            "node": "Upsert Job Application",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Job Application": {
+      "main": [
+        [
+          {
+            "node": "Backfill Mode?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Backfill Mode?": {
+      "main": [
+        [
+          {
+            "node": "Finish Current Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sort Live Sheet Newest First",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sort Live Sheet Newest First": {
+      "main": [
+        [
+          {
+            "node": "New Application?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New Application?": {
+      "main": [
+        [
+          {
+            "node": "Send New Application Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Status Changed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send New Application Email": {
+      "main": [
+        [
+          {
+            "node": "Finish Current Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status Changed?": {
+      "main": [
+        [
+          {
+            "node": "Send Status Update Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finish Current Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Status Update Email": {
+      "main": [
+        [
+          {
+            "node": "Finish Current Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finish Current Email": {
+      "main": [
+        [
+          {
+            "node": "Continue Backfill?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Continue Backfill?": {
+      "main": [
+        [
+          {
+            "node": "Backfill One Email at a Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Predictable Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Parsed Without AI?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parsed Without AI?": {
+      "main": [
+        [
+          {
+            "node": "Format Deterministic Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Needs AI Classification?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Deterministic Output": {
+      "main": [
+        [
+          {
+            "node": "Build Application Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "c71c1b49-f222-4042-9b93-395c5c64a068",
+  "meta": {
+    "instanceId": "c59faa2da1c27b2f033cedf911d662baf70dd93bde68896e4caa7ff3f341b4c4"
+  },
+  "nodeGroups": [],
+  "id": "T8ey8mMhwLlHS6PE",
+  "tags": []
+}
